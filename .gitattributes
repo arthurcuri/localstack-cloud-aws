@@ -1,0 +1,9 @@
+# Força o GitHub a reconhecer como projeto Dart/Flutter
+*.dart linguist-language=Dart
+*.cc linguist-generated=true
+*.h linguist-generated=true
+*.cmake linguist-generated=true
+CMakeLists.txt linguist-generated=true
+linux/* linguist-generated=true
+build/* linguist-generated=true
+.dart_tool/* linguist-generated=true
