@@ -1,4 +1,4 @@
-# Comandos Rápidos - LocalStack
+# Comandos Rápidos
 
 ```
 https://app.localstack.cloud/inst/default/resources
@@ -7,26 +7,7 @@ https://app.localstack.cloud/inst/default/resources
 ## Configuração Inicial
 
 ```bash
-# Configurar AWS CLI com credenciais fake para LocalStack
-aws configure set aws_access_key_id test
-aws configure set aws_secret_access_key test
-aws configure set region us-east-1
-aws configure set output json
-
-# Ou em uma linha:
 aws configure set aws_access_key_id test && aws configure set aws_secret_access_key test && aws configure set region us-east-1 && aws configure set output json
-```
-
-## ⚡ Início Rápido
-
-```bash
-# Opção 1: Script automático (RECOMENDADO)
-./start-demo.sh
-
-# Opção 2: Manual
-docker-compose up -d
-sleep 15
-flutter run -d linux
 ```
 
 ## Docker
@@ -49,7 +30,7 @@ docker-compose down
 docker-compose down -v && rm -rf localstack-data
 ```
 
-## 🔍 Verificações
+## Verificações
 
 ```bash
 # Health check
@@ -129,48 +110,4 @@ flutter run -d linux
 
 # Limpar e rebuild
 flutter clean && flutter pub get && flutter run -d linux
-```
-
-## Monitoramento
-
-```bash
-# Terminal 1: Logs LocalStack
-docker logs -f localstack-main
-
-# Terminal 2: Logs Backend
-docker logs -f shopping-backend
-
-# Terminal 3: Imagens S3 (atualiza a cada 2s)
-watch -n 2 'aws --endpoint-url=http://localhost:4566 s3 ls s3://shopping-images/tasks/'
-
-# Terminal 4: Tarefas DynamoDB
-watch -n 2 'curl -s http://localhost:3000/api/tasks | jq ".count"'
-```
-
-## Troubleshooting
-
-```bash
-# Verificar portas em uso
-sudo lsof -i :4566
-sudo lsof -i :3000
-
-# Reiniciar tudo
-docker-compose restart
-
-# Ver rede Docker
-docker network inspect localstack_localstack-network
-
-# Recriar bucket manualmente
-aws --endpoint-url=http://localhost:4566 s3 mb s3://shopping-images
-aws --endpoint-url=http://localhost:4566 s3api put-bucket-acl \
-    --bucket shopping-images --acl public-read
-```
-
-## Estatísticas
-
-```bash
-# Total de recursos
-echo "Imagens S3: $(curl -s http://localhost:3000/api/images | jq '.count')"
-echo "Tarefas DynamoDB: $(curl -s http://localhost:3000/api/tasks | jq '.count')"
-echo "Mensagens SQS: $(curl -s http://localhost:3000/api/queue/messages | jq '.count')"
 ```
