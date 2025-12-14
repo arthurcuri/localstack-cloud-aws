@@ -236,11 +236,3 @@ flutter clean && flutter pub get
 # Recriar recursos AWS manualmente
 ./localstack-init/init-resources.sh
 ```
-
-## Documentação Adicional
-
-- **DEMO_GUIDE.md**: Guia completo de demonstração
-- **README_LOCALSTACK.md**: Arquitetura e detalhes técnicos
-- **TEST_IMAGE_UPLOAD.md**: Validação de upload de imagens
-- **QUICK_COMMANDS.md**: Referência rápida de comandos
-- **IMPLEMENTATION_SUMMARY.md**: Resumo da implementação
