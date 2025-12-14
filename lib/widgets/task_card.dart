@@ -60,21 +60,16 @@ class TaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
-    final dueDateFormat = DateFormat('dd/MM/yyyy');
-    final isOverdue = task.isOverdue;
     final category = Categories.getById(task.categoryId);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: task.completed ? 1 : 3,
-      color: isOverdue ? Colors.red.shade50 : null,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: isOverdue
-              ? Colors.red
-              : (task.completed ? Colors.grey.shade300 : category.color),
-          width: isOverdue ? 3 : 2,
+          color: task.completed ? Colors.grey.shade300 : category.color,
+          width: 2,
         ),
       ),
       child: InkWell(
@@ -281,57 +276,6 @@ class TaskCard extends StatelessWidget {
                             ],
                           ),
                         ),
-
-                        // Data de Vencimento (se existir)
-                        if (task.dueDate != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isOverdue
-                                  ? Colors.red.shade100
-                                  : Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isOverdue ? Colors.red : Colors.blue,
-                                width: 1,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  isOverdue ? Icons.warning : Icons.event,
-                                  size: 14,
-                                  color: isOverdue ? Colors.red : Colors.blue,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  dueDateFormat.format(task.dueDate!),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isOverdue ? Colors.red : Colors.blue,
-                                    fontWeight: isOverdue
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                  ),
-                                ),
-                                if (isOverdue) ...[
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'VENCIDA',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.red,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
 
                         // Data de criação
                         Row(

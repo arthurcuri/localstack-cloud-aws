@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/task.dart';
 import '../models/category.dart';
 import '../services/database_service.dart';
-import '../services/location_service.dart';
 import '../services/sensor_service.dart';
 import '../screens/task_form_screen.dart';
 import '../widgets/task_card.dart';
@@ -19,7 +18,6 @@ class TaskListScreen extends StatefulWidget {
 class _TaskListScreenState extends State<TaskListScreen> {
   List<Task> _tasks = [];
   String _filter = 'all'; // all, completed, pending
-  String? _categoryFilter; // null = todas categorias
   bool _isLoading = false;
 
   @override
@@ -139,9 +137,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
 
   Future<void> _loadTasks() async {
     setState(() => _isLoading = true);
-    final tasks = await DatabaseService.instance.readAll(
-      categoryId: _categoryFilter,
-    );
+    final tasks = await DatabaseService.instance.readAll();
     setState(() {
       _tasks = tasks;
       _isLoading = false;
@@ -154,8 +150,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
         return _tasks.where((t) => t.completed).toList();
       case 'pending':
         return _tasks.where((t) => !t.completed).toList();
-      case 'nearby':
-        return _tasks;
       default:
         return _tasks;
     }
@@ -173,42 +167,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
       'pending': pending,
       'completionRate': completionRate,
     };
-  }
-
-  Future<void> _filterByNearby() async {
-    final position = await LocationService.instance.getCurrentLocation();
-
-    if (position == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('❌ Não foi possível obter localização'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
-    }
-
-    final nearbyTasks = await DatabaseService.instance.getTasksNearLocation(
-      latitude: position.latitude,
-      longitude: position.longitude,
-      radiusInMeters: 1000,
-    );
-
-    setState(() {
-      _tasks = nearbyTasks;
-      _filter = 'nearby';
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('📍 ${nearbyTasks.length} tarefa(s) próxima(s)'),
-          backgroundColor: Colors.blue,
-        ),
-      );
-    }
   }
 
   Future<void> _toggleTask(Task task) async {
@@ -316,50 +274,8 @@ class _TaskListScreenState extends State<TaskListScreen> {
           ),
 
           // Category Filter
-          PopupMenuButton<String?>(
-            icon: Icon(
-              Icons.category,
-              color: _categoryFilter != null ? Colors.amber : Colors.white,
-            ),
-            tooltip: 'Filter by category',
-            onSelected: (value) async {
-              setState(() => _categoryFilter = value);
-              await _loadTasks();
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: null,
-                child: Row(
-                  children: [
-                    Icon(Icons.clear_all),
-                    SizedBox(width: 8),
-                    Text('All Categories'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: null,
-                enabled: false,
-                child: Divider(),
-              ),
-              ...Categories.all.map((category) {
-                return PopupMenuItem(
-                  value: category.id,
-                  child: Row(
-                    children: [
-                      Icon(
-                        Categories.getIconData(category.icon),
-                        color: category.color,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(category.name),
-                    ],
-                  ),
-                );
-              }),
-            ],
-          ),
+          // Removed as per request
+
           // Botão de alternar tema (Light/Dark Mode)
           IconButton(
             icon: Icon(
@@ -414,13 +330,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
                     'Completed',
                     stats['completed'].toString(),
                   ),
-                  if (stats['overdue']! > 0)
-                    _buildStatItem(
-                      Icons.warning,
-                      'Overdue',
-                      stats['overdue'].toString(),
-                      isWarning: true,
-                    ),
                 ],
               ),
             ),
@@ -500,7 +409,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
       ],
     );
   }
-
   Widget _buildEmptyState() {
     String message;
     IconData icon;
@@ -545,7 +453,6 @@ class _TaskListScreenState extends State<TaskListScreen> {
       'total': _tasks.length,
       'completed': _tasks.where((t) => t.completed).length,
       'pending': _tasks.where((t) => !t.completed).length,
-      'overdue': _tasks.where((t) => t.isOverdue).length,
     };
   }
 }

@@ -6,8 +6,7 @@ import '../models/task.dart';
 import '../models/category.dart';
 import '../services/database_service.dart';
 import '../services/camera_service.dart';
-import '../services/location_service.dart';
-import '../widgets/location_picker.dart';
+import '../services/cloud_service.dart';
 
 class TaskFormScreen extends StatefulWidget {
   final Task? task; // null = criar novo, não-null = editar
@@ -26,17 +25,11 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   String _priority = 'medium';
   bool _completed = false;
   bool _isLoading = false;
-  DateTime? _dueDate;
   String _categoryId = 'other';
 
   // CAMERA
   String? _photoPath; // Kept for compatibility
   List<String> _photoPaths = [];
-
-  // GPS
-  double? _latitude;
-  double? _longitude;
-  String? _locationName;
 
   @override
   void initState() {
@@ -48,13 +41,9 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       _descriptionController.text = widget.task!.description;
       _priority = widget.task!.priority;
       _completed = widget.task!.completed;
-      _dueDate = widget.task!.dueDate;
       _categoryId = widget.task!.categoryId;
       _photoPath = widget.task!.photoPath;
       _photoPaths = List.from(widget.task!.photoPaths);
-      _latitude = widget.task!.latitude;
-      _longitude = widget.task!.longitude;
-      _locationName = widget.task!.locationName;
     }
   }
 
@@ -213,45 +202,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     );
   }
 
-  // GPS METHODS
-  void _showLocationPicker() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: SingleChildScrollView(
-          child: LocationPicker(
-            initialLatitude: _latitude,
-            initialLongitude: _longitude,
-            initialAddress: _locationName,
-            onLocationSelected: (lat, lon, address) {
-              setState(() {
-                _latitude = lat;
-                _longitude = lon;
-                _locationName = address;
-              });
-              Navigator.pop(context);
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _removeLocation() {
-    setState(() {
-      _latitude = null;
-      _longitude = null;
-      _locationName = null;
-    });
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('📍 Localização removida')));
-  }
-
   Future<void> _saveTask() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -267,24 +217,62 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           description: _descriptionController.text.trim(),
           priority: _priority,
           completed: _completed,
-          dueDate: _dueDate,
           categoryId: _categoryId,
           photoPath: _photoPath,
           photoPaths: _photoPaths,
-          latitude: _latitude,
-          longitude: _longitude,
-          locationName: _locationName,
         );
+        
+        // Salvar localmente
         await DatabaseService.instance.create(newTask);
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✓ Task created successfully'),
-              backgroundColor: Colors.pink,
-              duration: Duration(seconds: 2),
-            ),
+        // Tentar sincronizar com a nuvem (LocalStack)
+        final isBackendOnline = await CloudService.instance.checkBackendHealth();
+        if (isBackendOnline) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('☁️ Uploading to cloud...'),
+                backgroundColor: Colors.blue,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+
+          // Sincronizar tarefa (upload de TODAS as fotos + salvar no DynamoDB)
+          final syncSuccess = await CloudService.instance.syncTask(
+            newTask,
+            imagePaths: _photoPaths, // Envia todas as fotos
           );
+
+          if (mounted) {
+            if (syncSuccess) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('✓ Task saved locally and in cloud!'),
+                  backgroundColor: Colors.green,
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('✓ Task saved locally (cloud sync failed)'),
+                  backgroundColor: Colors.orange,
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            }
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✓ Task saved locally (offline mode)'),
+                backgroundColor: Colors.pink,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
         }
       } else {
         // Update existing task
@@ -293,16 +281,18 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           description: _descriptionController.text.trim(),
           priority: _priority,
           completed: _completed,
-          dueDate: _dueDate,
-          clearDueDate: _dueDate == null,
           categoryId: _categoryId,
           photoPath: _photoPath,
           photoPaths: _photoPaths,
-          latitude: _latitude,
-          longitude: _longitude,
-          locationName: _locationName,
         );
+        
         await DatabaseService.instance.update(updatedTask);
+
+        // Tentar sincronizar atualização com a nuvem
+        final isBackendOnline = await CloudService.instance.checkBackendHealth();
+        if (isBackendOnline) {
+          await CloudService.instance.saveTask(updatedTask);
+        }
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -629,120 +619,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                       ),
 
                     const Divider(height: 32),
-
-                    // LOCATION SECTION
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on, color: Colors.blue),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Location',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Spacer(),
-                        if (_latitude != null)
-                          TextButton.icon(
-                            onPressed: _removeLocation,
-                            icon: const Icon(Icons.delete_outline, size: 18),
-                            label: const Text('Remove'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.red,
-                            ),
-                          ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    if (_latitude != null && _longitude != null)
-                      Card(
-                        child: ListTile(
-                          leading: const Icon(
-                            Icons.location_on,
-                            color: Colors.blue,
-                          ),
-                          title: Text(_locationName ?? 'Location saved'),
-                          subtitle: Text(
-                            LocationService.instance.formatCoordinates(
-                              _latitude!,
-                              _longitude!,
-                            ),
-                          ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: _showLocationPicker,
-                          ),
-                        ),
-                      )
-                    else
-                      OutlinedButton.icon(
-                        onPressed: _showLocationPicker,
-                        icon: const Icon(Icons.add_location),
-                        label: const Text('Add Location'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.all(16),
-                        ),
-                      ),
-
-                    const SizedBox(height: 32),
-
-                    // Due Date
-                    Card(
-                      child: ListTile(
-                        leading: Icon(
-                          Icons.calendar_today,
-                          color: _dueDate != null
-                              ? Colors.pink
-                              : Colors.grey,
-                        ),
-                        title: const Text('Due Date'),
-                        subtitle: Text(
-                          _dueDate != null
-                              ? DateFormat('MM/dd/yyyy').format(_dueDate!)
-                              : 'No date set',
-                          style: TextStyle(
-                            color:
-                                _dueDate != null &&
-                                    _dueDate!.isBefore(DateTime.now())
-                                ? Colors.red
-                                : null,
-                          ),
-                        ),
-                        trailing: _dueDate != null
-                            ? IconButton(
-                                icon: const Icon(Icons.clear),
-                                onPressed: () {
-                                  setState(() => _dueDate = null);
-                                },
-                                tooltip: 'Remove date',
-                              )
-                            : null,
-                        onTap: () async {
-                          final date = await showDatePicker(
-                            context: context,
-                            initialDate: _dueDate ?? DateTime.now(),
-                            firstDate: DateTime.now().subtract(
-                              const Duration(days: 365),
-                            ),
-                            lastDate: DateTime.now().add(
-                              const Duration(days: 365 * 5),
-                            ),
-                            helpText: 'Select due date',
-                            cancelText: 'Cancel',
-                            confirmText: 'Confirm',
-                          );
-
-                          if (date != null) {
-                            setState(() => _dueDate = date);
-                          }
-                        },
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
 
                     // Completed Switch
                     Card(

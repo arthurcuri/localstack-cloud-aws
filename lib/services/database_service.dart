@@ -36,16 +36,12 @@ class DatabaseService {
         completed INTEGER NOT NULL,
         priority TEXT NOT NULL,
         createdAt TEXT NOT NULL,
-        dueDate TEXT,
         categoryId TEXT NOT NULL DEFAULT 'other',
         reminderTime TEXT,
         photoPath TEXT,
         photoPaths TEXT,
         completedAt TEXT,
-        completedBy TEXT,
-        latitude REAL,
-        longitude REAL,
-        locationName TEXT
+        completedBy TEXT
       )
     ''');
   }
@@ -111,15 +107,8 @@ class DatabaseService {
 
   Future<List<Task>> readAll({String? categoryId}) async {
     final db = await database;
-    // Ordena por data de vencimento (nulls no final), depois por data de criação
-    const orderBy = '''
-      CASE 
-        WHEN dueDate IS NULL THEN 1 
-        ELSE 0 
-      END,
-      dueDate ASC,
-      createdAt DESC
-    ''';
+    // Ordena por data de criação
+    const orderBy = 'createdAt DESC';
 
     if (categoryId != null) {
       final result = await db.query(
@@ -148,26 +137,6 @@ class DatabaseService {
   Future<int> delete(String id) async {
     final db = await database;
     return await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
-  }
-
-  // Método especial: buscar tarefas por proximidade
-  Future<List<Task>> getTasksNearLocation({
-    required double latitude,
-    required double longitude,
-    double radiusInMeters = 1000,
-  }) async {
-    final allTasks = await readAll();
-
-    return allTasks.where((task) {
-      if (!task.hasLocation) return false;
-
-      // Cálculo de distância usando fórmula de Haversine (simplificada)
-      final latDiff = (task.latitude! - latitude).abs();
-      final lonDiff = (task.longitude! - longitude).abs();
-      final distance = ((latDiff * 111000) + (lonDiff * 111000)) / 2;
-
-      return distance <= radiusInMeters;
-    }).toList();
   }
 
   /// Limpa todas as tarefas do banco de dados
