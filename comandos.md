@@ -1,5 +1,9 @@
 # Comandos Rápidos - LocalStack
 
+```
+https://app.localstack.cloud/inst/default/resources
+```
+
 ## Configuração Inicial
 
 ```bash
