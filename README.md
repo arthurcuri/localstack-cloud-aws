@@ -4,16 +4,6 @@
 
 Sistema de gerenciamento de tarefas com simulação de serviços AWS (S3, DynamoDB, SQS, SNS) usando LocalStack para desenvolvimento e testes locais sem custos de cloud.
 
-## Funcionalidades
-
-- **Gerenciamento de Tarefas**: Criação de tarefas com descrição e categorias
-- **Captura de Fotos**: Integração com câmera para anexar imagens às tarefas
-- **Armazenamento S3**: Upload de fotos para bucket S3 simulado localmente
-- **Persistência DynamoDB**: Metadados de tarefas salvos em tabela NoSQL
-- **Mensageria SQS**: Fila de processamento de tarefas
-- **Notificações SNS**: Publicação de eventos de criação de tarefas
-- **Offline-First**: SQLite local com sincronização para cloud
-
 ## Arquitetura de Cloud Simulation
 
 O sistema utiliza LocalStack para simular serviços AWS localmente:
@@ -22,16 +12,6 @@ O sistema utiliza LocalStack para simular serviços AWS localmente:
 - **DynamoDB**: Tabela `shopping-tasks` para metadados
 - **SQS**: Fila `shopping-queue` para processamento assíncrono
 - **SNS**: Tópico `shopping-notifications` para eventos
-
-### Fluxo de Upload
-
-1. Usuário tira foto no app Flutter
-2. Imagem convertida para Base64
-3. Backend recebe POST com imagem
-4. Foto salva no S3 (LocalStack)
-5. Metadados salvos no DynamoDB
-6. Mensagem enviada para SQS
-7. Notificação publicada no SNS
 
 ## Tecnologias Utilizadas
 
@@ -43,36 +23,6 @@ O sistema utiliza LocalStack para simular serviços AWS localmente:
 - **Docker**: Containerização de LocalStack e Backend
 - **SQLite**: Database local no app Flutter
 
-## Estrutura da Aplicação
-
-```
-localstack/
-├── docker-compose.yml          # Orquestração de containers
-├── localstack-init/
-│   └── init-resources.sh       # Script de inicialização AWS
-├── backend/
-│   ├── server.js               # API REST (porta 3000)
-│   ├── Dockerfile              # Container do backend
-│   └── package.json            # Dependências Node.js
-├── lib/
-│   ├── main.dart               # Entrada do app Flutter
-│   ├── services/
-│   │   ├── cloud_service.dart  # Integração com AWS
-│   │   ├── database_service.dart
-│   │   ├── camera_service.dart
-│   │   └── notification_service.dart
-│   ├── screens/
-│   │   ├── task_list_screen.dart
-│   │   ├── task_form_screen.dart
-│   │   └── camera_screen.dart
-│   └── models/
-│       ├── task.dart
-│       └── category.dart
-└── docs/
-    ├── DEMO_GUIDE.md           # Guia de demonstração
-    ├── README_LOCALSTACK.md    # Documentação técnica
-    └── QUICK_COMMANDS.md       # Comandos rápidos
-```
 
 ## Pré-requisitos
 
@@ -96,10 +46,6 @@ aws configure set output json
 ### 2. Iniciar Infraestrutura
 
 ```bash
-# Opção 1: Script automático (RECOMENDADO)
-./start-demo.sh
-
-# Opção 2: Manual
 docker-compose up -d
 ```
 
@@ -122,16 +68,6 @@ flutter run -d linux
    - Verifique imagem no S3: `curl http://localhost:3000/api/images | jq`
    - Verifique task no DynamoDB: `curl http://localhost:3000/api/tasks | jq`
    - Backend health check: `curl http://localhost:3000/health`
-
-### Logs Esperados
-
-**Backend (LocalStack):**
-```
-Imagem salva no S3: tasks/[UUID]_[timestamp].jpg
-Task salva no DynamoDB: [TASK_ID]
-Mensagem enviada para SQS
-Notificação publicada no SNS
-```
 
 ## Endpoints da API
 
@@ -193,46 +129,4 @@ aws --endpoint-url=http://localhost:4566 dynamodb scan --table-name shopping-tas
 # Receber mensagens SQS
 aws --endpoint-url=http://localhost:4566 sqs receive-message \
     --queue-url http://localhost:4566/000000000000/shopping-queue
-```
-
-### Via REST API
-
-```bash
-# Estatísticas
-curl http://localhost:3000/api/images | jq '.count'
-curl http://localhost:3000/api/tasks | jq '.count'
-curl http://localhost:3000/api/queue/messages | jq '.count'
-```
-
-## Monitoramento em Tempo Real
-
-```bash
-# Terminal 1: Logs LocalStack
-docker logs -f localstack-main
-
-# Terminal 2: Logs Backend
-docker logs -f shopping-backend
-
-# Terminal 3: Imagens S3 (atualiza a cada 2s)
-watch -n 2 'aws --endpoint-url=http://localhost:4566 s3 ls s3://shopping-images/tasks/'
-
-# Terminal 4: Tarefas DynamoDB
-watch -n 2 'curl -s http://localhost:3000/api/tasks | jq ".count"'
-```
-
-## Desenvolvimento
-
-```bash
-# Rebuild backend
-docker-compose build backend
-docker-compose up -d
-
-# Reiniciar serviços
-docker-compose restart
-
-# Limpar cache Flutter
-flutter clean && flutter pub get
-
-# Recriar recursos AWS manualmente
-./localstack-init/init-resources.sh
 ```
